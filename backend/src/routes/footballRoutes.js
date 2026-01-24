@@ -16,20 +16,30 @@ router.get('/live', async (req, res)=>{
 // get upcoming matches
 router.get('/upcoming', async (req, res)=>{
     try {
-        const matches = await footballCollector.getUpcomingMatches();
+        const matches = await footballCollector.getTodayMatches();
         res.json(matches);
     } catch (error) {
-        req.status(500).json({error: error.message});
+        res.status(500).json({error: error.message});
+    }
+});
+
+// get matches for today
+router.get('/today', async (req, res) => {
+    try {
+        const matches = await footballCollector.getTodayMatches();
+        res.json(matches);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 });
 
 // get comp standings 
-router.get('standings/:competitionId',async (req, res)=>{
+router.get('/standings/:competitionId',async (req, res)=>{
     try {
-        const standings = await footballCollector.getCompetitionStandings();
+        const standings = await footballCollector.getCompetitionStandings(req.params.competitionId);
         res.json(standings);
     } catch (error) {
-        req.status(500).json({error: error.message});
+        res.status(500).json({error: error.message});
     }
 });
 

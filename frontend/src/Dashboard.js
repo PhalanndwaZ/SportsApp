@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import io from 'socket.io-client';
 import axios from 'axios';
-import './App.css';
+import TopBar from './TopBar';
 
 const socket = io('http://localhost:5000');
 
-function Dashboard() {
+function Dashboard({ currentPath, onNavigate }) {
   const [f1Data, setF1Data] = useState([]);
   const [footballData, setFootballData] = useState([]);
   const [connected, setConnected] = useState(false);
@@ -47,7 +47,7 @@ function Dashboard() {
       console.log('F1 drivers fetched:', f1Response.data);
       setF1Data(f1Response.data);
 
-      const footballResponse = await axios.get('http://localhost:5000/api/football/upcoming');
+      const footballResponse = await axios.get('http://localhost:5000/api/football/today');
       console.log('Football matches fetched:', footballResponse.data);
       setFootballData(footballResponse.data);
     } catch (error) {
@@ -57,35 +57,26 @@ function Dashboard() {
 
   return (
     <div className="App">
-      {/* Header */}
-      <header className="header">
-        <div className="header-container">
-          <a href="/" className="logo">
-            <span className="logo-text">APEX</span>
-            <span className="logo-subtitle">Sports</span>
-          </a>
-
-          <nav className="nav">
-            <a href="#live" className="nav-link">Live</a>
-            <a href="#scores" className="nav-link">Scores</a>
-            <a href="#schedule" className="nav-link">Schedule</a>
-          </nav>
-
+      <TopBar
+        currentPath={currentPath}
+        onNavigate={onNavigate}
+        variant="solid"
+        rightSlot={(
           <div className="status-badge">
             <span className={`status-indicator ${connected ? 'connected' : 'disconnected'}`}></span>
             <span>{connected ? 'Connected' : 'Disconnected'}</span>
           </div>
-        </div>
-      </header>
+        )}
+      />
 
       {/* Main Content */}
       <main className="main-content">
-        {/* F1 Section */}
-        <section className="section">
-          <div className="section-header">
-            <span className="section-icon">🏎️</span>
-            <h2 className="section-title">Formula 1</h2>
-          </div>
+      {/* F1 Section */}
+      <section className="section">
+        <div className="section-header">
+          <span className="section-icon">🏎️</span>
+          <h2 className="section-title">Formula 1 · Latest Results</h2>
+        </div>
 
           {f1Data && f1Data.length > 0 ? (
             <div className="card-grid">
@@ -107,7 +98,7 @@ function Dashboard() {
           ) : (
             <div className="empty-state">
               <div className="empty-state-icon">🏁</div>
-              <p>No F1 data available. Waiting for updates...</p>
+              <p>No results available yet. Waiting for updates...</p>
             </div>
           )}
         </section>

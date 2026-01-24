@@ -1,14 +1,17 @@
 import React from 'react';
+import TopBar from './TopBar';
 import './LandingPage.css';
 
-function LandingPage() {
+function LandingPage({ onNavigate, currentPath }) {
   const handleGetStarted = () => {
     // Navigate to the main app
-    window.location.href = '/dashboard';
+    onNavigate('/dashboard');
   };
 
   return (
     <div className="landing-page">
+      <TopBar currentPath={currentPath} onNavigate={onNavigate} variant="landing" />
+
       {/* Background Video */}
       <video
         autoPlay
@@ -26,12 +29,6 @@ function LandingPage() {
 
       {/* Content */}
       <div className="landing-content">
-        {/* Logo/Brand */}
-        <div className="brand">
-          <span className="brand-text">APEX</span>
-          <span className="brand-subtitle">Sports</span>
-        </div>
-
         {/* Hero Section */}
         <div className="hero">
           <h1 className="hero-title">
@@ -49,8 +46,8 @@ function LandingPage() {
               Get Started
               <span className="arrow">→</span>
             </button>
-            <button className="btn-secondary">
-              Watch Demo
+            <button className="btn-secondary" onClick={() => onNavigate('/f1')}>
+              Explore F1
             </button>
           </div>
         </div>

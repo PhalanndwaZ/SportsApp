@@ -1,0 +1,418 @@
+.page {
+  min-height: 100vh;
+  padding-top: 96px;
+  color: #f8f5ee;
+  position: relative;
+  overflow: hidden;
+}
+
+.f1-video-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.f1-video-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 6, 6, 0.55);
+}
+
+.f1-video-bg iframe {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100vw;
+  height: 56.25vw;
+  min-width: 177.78vh;
+  min-height: 100vh;
+  transform: translate(-50%, -50%);
+  border: 0;
+}
+
+.page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.06), transparent 45%),
+    radial-gradient(circle at 80% 10%, rgba(255, 255, 255, 0.04), transparent 35%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.page--f1 {
+  background: radial-gradient(circle at top left, rgba(255, 80, 0, 0.25), transparent 45%),
+    linear-gradient(120deg, #0b0b0b 20%, #15100a 70%, #1c0d05 100%);
+}
+
+.page--football {
+  background: radial-gradient(circle at top right, rgba(10, 184, 92, 0.25), transparent 50%),
+    linear-gradient(120deg, #07150d 10%, #0c1d12 60%, #0f1b16 100%);
+}
+
+.page-content {
+  position: relative;
+  z-index: 1;
+}
+
+.page-hero {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 3.5rem 2rem 2rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+  align-items: center;
+}
+
+.hero-kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.25em;
+  font-size: 0.8rem;
+  color: rgba(248, 245, 238, 0.7);
+}
+
+.hero-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(2.8rem, 6vw, 4.8rem);
+  letter-spacing: 0.04em;
+  margin: 0.8rem 0 1rem;
+}
+
+.hero-description {
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: rgba(248, 245, 238, 0.78);
+  max-width: 520px;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.hero-button {
+  padding: 0.85rem 1.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(248, 245, 238, 0.3);
+  background: rgba(248, 245, 238, 0.08);
+  color: #f8f5ee;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: transform 0.2s ease, border 0.2s ease;
+}
+
+.hero-button.primary {
+  border-color: transparent;
+  background: linear-gradient(120deg, rgba(255, 144, 80, 0.9), rgba(255, 80, 0, 0.75));
+  color: #130902;
+  font-weight: 600;
+}
+
+.hero-button.football {
+  background: linear-gradient(120deg, rgba(18, 189, 101, 0.9), rgba(6, 120, 66, 0.85));
+  border-color: transparent;
+  color: #041008;
+  font-weight: 600;
+}
+
+.hero-button:hover {
+  transform: translateY(-2px);
+  border-color: rgba(248, 245, 238, 0.6);
+}
+
+.hero-card-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.hero-card-grid--intro {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.hero-media {
+  display: grid;
+  place-items: center;
+}
+
+.video-loop-slot {
+  width: 100%;
+  min-height: 220px;
+  border-radius: 1.2rem;
+  border: 1px dashed rgba(248, 245, 238, 0.25);
+  background: rgba(10, 10, 10, 0.5);
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 1.5rem;
+}
+
+.video-loop-label {
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  font-size: 0.75rem;
+  color: rgba(248, 245, 238, 0.7);
+}
+
+.video-loop-subtitle {
+  margin-top: 0.5rem;
+  color: rgba(248, 245, 238, 0.55);
+  font-size: 0.9rem;
+}
+
+.stat-card {
+  background: rgba(15, 15, 15, 0.65);
+  border: 1px solid rgba(248, 245, 238, 0.1);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  backdrop-filter: blur(12px);
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: rgba(248, 245, 238, 0.6);
+}
+
+.stat-value {
+  font-size: 1.7rem;
+  margin: 0.5rem 0 0.25rem;
+  font-weight: 600;
+}
+
+.stat-note {
+  color: rgba(248, 245, 238, 0.65);
+  font-size: 0.9rem;
+}
+
+.page-section {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.section-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2rem;
+  letter-spacing: 0.08em;
+}
+
+.section-tag {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: rgba(248, 245, 238, 0.6);
+}
+
+.data-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.2rem;
+}
+
+.data-card {
+  background: rgba(10, 10, 10, 0.7);
+  border-radius: 1rem;
+  border: 1px solid rgba(248, 245, 238, 0.12);
+  padding: 1.2rem;
+  display: grid;
+  gap: 0.6rem;
+  min-height: 160px;
+}
+
+.data-card strong {
+  font-size: 1.05rem;
+}
+
+.data-meta {
+  color: rgba(248, 245, 238, 0.6);
+  font-size: 0.85rem;
+}
+
+.split-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.5rem;
+}
+
+.highlight-panel {
+  background: rgba(16, 16, 16, 0.75);
+  border-radius: 1.2rem;
+  border: 1px solid rgba(248, 245, 238, 0.12);
+  padding: 1.5rem;
+}
+
+.highlight-panel h4 {
+  margin-bottom: 0.8rem;
+  font-size: 1.15rem;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(248, 245, 238, 0.08);
+  color: rgba(248, 245, 238, 0.7);
+}
+
+.panel-tabs {
+  display: inline-flex;
+  background: rgba(8, 8, 8, 0.8);
+  border-radius: 999px;
+  border: 1px solid rgba(248, 245, 238, 0.15);
+  padding: 0.35rem;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.panel-tabs--header {
+  background: rgba(8, 8, 8, 0.9);
+  padding: 0.45rem;
+}
+
+.page-section--tabs {
+  padding-top: 0.5rem;
+  padding-bottom: 0;
+}
+
+.topbar-nav--f1 {
+  gap: 1.25rem;
+}
+
+.topbar-link--button {
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.subbar {
+  background: rgba(10, 10, 10, 0.95);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0;
+}
+
+.subbar-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0.85rem 2rem;
+}
+
+.panel-tab {
+  background: transparent;
+  border: none;
+  color: rgba(248, 245, 238, 0.7);
+  padding: 0.5rem 1.2rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.panel-tab.active {
+  background: linear-gradient(120deg, rgba(255, 144, 80, 0.9), rgba(255, 80, 0, 0.75));
+  color: #140a03;
+  font-weight: 600;
+}
+
+.f1-tabs {
+  display: inline-flex;
+  background: rgba(8, 8, 8, 0.8);
+  border-radius: 999px;
+  border: 1px solid rgba(248, 245, 238, 0.15);
+  padding: 0.35rem;
+  gap: 0.35rem;
+}
+
+.f1-tab {
+  background: transparent;
+  border: none;
+  color: rgba(248, 245, 238, 0.7);
+  padding: 0.5rem 1.4rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.f1-tab.active {
+  background: linear-gradient(120deg, rgba(255, 144, 80, 0.9), rgba(255, 80, 0, 0.75));
+  color: #140a03;
+  font-weight: 600;
+}
+
+.card-link {
+  cursor: pointer;
+  transition: transform 0.2s ease, border 0.2s ease;
+}
+
+.card-link:hover {
+  transform: translateY(-2px);
+  border-color: rgba(248, 245, 238, 0.4);
+}
+
+.table-row-link {
+  cursor: pointer;
+}
+
+.table-row-link:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid rgba(248, 245, 238, 0.1);
+  font-size: 0.9rem;
+}
+
+.table th {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: rgba(248, 245, 238, 0.6);
+}
+
+@media (max-width: 720px) {
+  .page-hero {
+    padding: 2.5rem 1.25rem 1rem;
+  }
+
+  .page-section {
+    padding: 1.5rem 1.25rem;
+  }
+}

@@ -1,0 +1,129 @@
+.topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: rgba(10, 10, 10, 0.7);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.topbar--landing {
+  background: linear-gradient(90deg, rgba(10, 10, 10, 0.85), rgba(10, 10, 10, 0.45));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.topbar--solid {
+  background: rgba(10, 10, 10, 0.95);
+}
+
+.topbar-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+}
+
+.topbar-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-decoration: none;
+}
+
+.topbar-logo {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.75rem;
+  letter-spacing: 0.12em;
+  color: #f2e4c9;
+}
+
+.topbar-subtitle {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: rgba(250, 250, 250, 0.65);
+}
+
+.topbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 1.75rem;
+}
+
+.topbar-link {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: rgba(250, 250, 250, 0.7);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.topbar-link:hover,
+.topbar-link.active {
+  color: #f2e4c9;
+}
+
+.topbar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.topbar-button {
+  padding: 0.65rem 1.4rem;
+  border-radius: 999px;
+  border: 1px solid rgba(242, 228, 201, 0.4);
+  background: rgba(242, 228, 201, 0.12);
+  color: #f2e4c9;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border 0.2s ease;
+}
+
+.topbar-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(242, 228, 201, 0.8);
+  box-shadow: 0 8px 20px rgba(242, 228, 201, 0.2);
+}
+
+.topbar-slot {
+  display: inline-flex;
+  align-items: center;
+}
+
+@media (max-width: 900px) {
+  .topbar-inner {
+    padding: 0.85rem 1.25rem;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .topbar-nav {
+    width: 100%;
+    justify-content: center;
+    gap: 1rem;
+  }
+
+  .topbar-actions {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 600px) {
+  .topbar-nav {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .topbar-button {
+    padding: 0.55rem 1.1rem;
+  }
+}
