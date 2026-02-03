@@ -3,22 +3,38 @@ const f1collector = require('../collectors/f1collector');
 const footballCollector = require('../collectors/footballCollector');
 
 let io;
+let lastF1NetworkError = 0;
 
 // Poll F1 data every 30 seconds
 const startF1LiveUpdates = () => {
-    console.log(' F1 live updates scheduler started');
+    console.log('F1 live updates scheduler started');
     cron.schedule('*/30 * * * * *', async () => {
         try {
-            if (io) {
-                const positions = await f1collector.getLivePositions();
-                if (positions && positions.length > 0) {
-                    io.emit('f1-update', positions);
-                    console.log(`📡 F1 data updated - ${positions.length} results`);
-                } else {
-                    console.log('No recent F1 results available');
+            const session = await f1collector.getLatestSession();
+            
+            if (session && session.session_key && io) {
+                // Save session to DB
+                await f1collector.saveSessionToDb(session);
+                
+                // Get and save drivers
+                const drivers = await f1collector.getDrivers(session.session_key);
+                
+                if (drivers && drivers.length > 0) {
+                    io.emit('f1-update', drivers);
+                    console.log(`📡 F1 data updated - ${drivers.length} drivers (saved to DB)`);
                 }
+            } else {
+                console.log('No active F1 session');
             }
         } catch (error) {
+            if (error?.code === 'EAI_AGAIN' || error?.code === 'ENOTFOUND') {
+                const now = Date.now();
+                if (now - lastF1NetworkError > 60000) {
+                    console.error('F1 update error: OpenF1 unreachable');
+                    lastF1NetworkError = now;
+                }
+                return;
+            }
             console.error('F1 update error:', error.message);
         }
     });
@@ -32,17 +48,11 @@ const startFootballLiveUpdates = () => {
             const liveMatches = await footballCollector.getLiveMatches();
             
             if (io) {
-                if (liveMatches && liveMatches.length > 0) {
-                    io.emit('football-update', liveMatches);
-                    console.log(` Football data updated - ${liveMatches.length} live matches`);
-                } else {
-                    const todayMatches = await footballCollector.getTodayMatches();
-                    io.emit('football-update', todayMatches);
-                    console.log(` Football data updated - ${todayMatches.length} matches today`);
-                }
+                io.emit('football-update', liveMatches);
+                console.log(`Football data updated - ${liveMatches.length} live matches (saved to DB)`);
             }
         } catch (error) {
-            console.error(' Football update error:', error.message);
+            console.error('Football update error:', error.message);
         }
     });
 }; 

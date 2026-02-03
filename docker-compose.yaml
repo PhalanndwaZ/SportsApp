@@ -1,13 +1,11 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:15
     container_name: sports_db
     environment:
       POSTGRES_USER: user
-      POSTGRES_PASSWORD: 
-      POSTGRES_DB: 
+      POSTGRES_PASSWORD: Lyon
+      POSTGRES_DB: sports_db
     ports:
       - "5432:5432"
     volumes:

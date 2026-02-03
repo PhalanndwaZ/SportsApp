@@ -1,103 +1,171 @@
 const axios = require('axios');
+const { PrismaClient } = require('@prisma/client');
 
-const DEFAULT_TIMEOUT_MS = 20000;
+const prisma = new PrismaClient();
 
-const RETRYABLE_CODES = new Set(['EAI_AGAIN', 'ENOTFOUND', 'ETIMEDOUT', 'ECONNRESET']);
+class FootballCollector {
+  constructor() {
+    this.baseURL = 'https://api.football-data.org/v4';
+    this.apiKey = process.env.FOOTBALL_API_KEY;
+  }
 
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  async getLiveMatches() {
+    try {
+      const response = await axios.get(`${this.baseURL}/matches`, {
+        headers: { 'X-Auth-Token': this.apiKey },
+        params: { status: 'LIVE' }
+      });
+      
+      const matches = response.data.matches;
+      
+      // AUTO-SAVE: Save live matches to database
+      if (matches.length > 0) {
+        await this.saveMatchesToDb(matches);
+      }
+      
+      return matches;
+    } catch (error) {
+      console.error('Error fetching live matches:', error.message);
+      throw error;
+    }
+  }
 
-const requestWithRetry = async (url, options = {}, retries = 2) => {
-    let lastError;
-    for (let attempt = 0; attempt <= retries; attempt += 1) {
+  async getUpcomingMatches() {
+    try {
+      const response = await axios.get(`${this.baseURL}/matches`, {
+        headers: { 'X-Auth-Token': this.apiKey },
+        params: { status: 'SCHEDULED' }
+      });
+      
+      const matches = response.data.matches;
+      
+      // AUTO-SAVE: Save upcoming matches to database
+      if (matches.length > 0) {
+        await this.saveMatchesToDb(matches);
+      }
+      
+      return matches;
+    } catch (error) {
+      console.error('Error fetching upcoming matches:', error.message);
+      throw error;
+    }
+  }
+
+  async getCompetitionStandings(competitionId) {
+    try {
+      const response = await axios.get(
+        `${this.baseURL}/competitions/${competitionId}/standings`,
+        { headers: { 'X-Auth-Token': this.apiKey } }
+      );
+      
+      // AUTO-SAVE: Save standings to database
+      if (response.data.standings && response.data.standings.length > 0) {
+        await this.saveStandingsToDb(response.data.standings, competitionId);
+      }
+      
+      return response.data.standings;
+    } catch (error) {
+      console.error('Error fetching standings:', error.message);
+      throw error;
+    }
+  }
+
+  // Save matches to database
+  async saveMatchesToDb(matches) {
+    try {
+      let savedCount = 0;
+      
+      for (const match of matches) {
         try {
-            const response = await axios.get(url, {
-                timeout: DEFAULT_TIMEOUT_MS,
-                ...options,
-            });
-            return response;
-        } catch (error) {
-            lastError = error;
-            const code = error.code || '';
-            const shouldRetry = RETRYABLE_CODES.has(code);
-            if (!shouldRetry || attempt === retries) {
-                throw error;
-            }
-            await delay(500 * (attempt + 1));
+          await prisma.footballMatch.upsert({
+            where: { matchId: match.id },
+            update: {
+              homeScore: match.score?.fullTime?.home,
+              awayScore: match.score?.fullTime?.away,
+              status: match.status,
+              updatedAt: new Date(),
+            },
+            create: {
+              matchId: match.id,
+              homeTeam: match.homeTeam.name,
+              homeTeamId: match.homeTeam.id,
+              awayTeam: match.awayTeam.name,
+              awayTeamId: match.awayTeam.id,
+              homeScore: match.score?.fullTime?.home,
+              awayScore: match.score?.fullTime?.away,
+              competition: match.competition.name,
+              competitionId: match.competition.id,
+              matchDate: new Date(match.utcDate),
+              status: match.status,
+              venue: match.venue || 'Unknown',
+            },
+          });
+          savedCount++;
+        } catch (err) {
+          console.error(`Error saving match ${match.id}:`, err.message);
         }
+      }
+      
+      console.log(`💾 Saved ${savedCount}/${matches.length} football matches to database`);
+    } catch (error) {
+      console.error('Error saving matches to DB:', error.message);
     }
-    throw lastError;
-};
+  }
 
-const formatDate = (date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-};
-
-class FootballCollector{
-    constructor(){
-        this.baseURL = process.env.FOOTBALL_BASE_URL || 'https://api.football-data.org/v4';
-        this.apiKey = process.env.FOOTBALL_API_KEY;
-
-    }
-    async getLiveMatches(){
-        try {
-            if (!this.apiKey) {
-                throw new Error('FOOTBALL_API_KEY is not set');
+  // Save standings to database
+  async saveStandingsToDb(standings, competitionId) {
+    try {
+      let savedCount = 0;
+      
+      for (const standing of standings) {
+        if (standing.type === 'TOTAL' && standing.table) {
+          for (const team of standing.table) {
+            try {
+              await prisma.footballTeam.upsert({
+                where: { teamId: team.team.id },
+                update: {
+                  position: team.position,
+                  played: team.playedGames,
+                  won: team.won,
+                  drawn: team.draw,
+                  lost: team.lost,
+                  points: team.points,
+                  goalsFor: team.goalsFor,
+                  goalsAgainst: team.goalsAgainst,
+                  goalDiff: team.goalDifference,
+                  updatedAt: new Date(),
+                },
+                create: {
+                  teamId: team.team.id,
+                  teamName: team.team.name,
+                  shortName: team.team.shortName,
+                  tla: team.team.tla,
+                  competition: standing.group || 'Main',
+                  competitionId: competitionId,
+                  position: team.position,
+                  played: team.playedGames,
+                  won: team.won,
+                  drawn: team.draw,
+                  lost: team.lost,
+                  points: team.points,
+                  goalsFor: team.goalsFor,
+                  goalsAgainst: team.goalsAgainst,
+                  goalDiff: team.goalDifference,
+                },
+              });
+              savedCount++;
+            } catch (err) {
+              console.error(`Error saving team ${team.team.name}:`, err.message);
             }
-            const response = await requestWithRetry(`${this.baseURL}/matches`, {
-                headers: { 'X-Auth-Token': this.apiKey},
-                params: {status: 'LIVE'},
-            });
-            return response.data.matches;
-        } catch (error) {
-            console.error('Error fetching live matches: ', error.message);
-            throw error;
+          }
         }
+      }
+      
+      console.log(`Saved ${savedCount} team standings to database`);
+    } catch (error) {
+      console.error('Error saving standings to DB:', error.message);
     }
-    async getCompetitionStandings(competitionId){
-        try {
-            if (!this.apiKey) {
-                throw new Error('FOOTBALL_API_KEY is not set');
-            }
-            const response = await requestWithRetry(`${this.baseURL}/competitions/${competitionId}/standings`,{
-                headers: {'X-Auth-Token': this.apiKey}
-            });
-            return response.data.standings;
-        } catch (error) {
-            console.error('Error fetching standings: ', error.message);
-            throw error;
-        }
-    }
-
-    async getUpcomingMatches(dateFrom, dateTo){
-        try {
-            if (!this.apiKey) {
-                throw new Error('FOOTBALL_API_KEY is not set');
-            }
-            const params = {};
-            if (dateFrom) {
-                params.dateFrom = dateFrom;
-            }
-            if (dateTo) {
-                params.dateTo = dateTo;
-            }
-            const response = await requestWithRetry(`${this.baseURL}/matches`,{
-                headers:{'X-Auth-Token': this.apiKey},
-                params
-            });
-            return response.data.matches;
-        } catch (error) {
-            console.error('Error fetching upcoming matches: ', error.message);
-            throw error;
-        }
-    }
-
-    async getTodayMatches(){
-        const today = formatDate(new Date());
-        return this.getUpcomingMatches(today, today);
-    }
+  }
 }
 
 module.exports = new FootballCollector();

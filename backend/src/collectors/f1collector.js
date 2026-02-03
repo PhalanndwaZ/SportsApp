@@ -1,45 +1,37 @@
 const axios = require('axios');
+const { PrismaClient } = require('@prisma/client');
 
-const DEFAULT_TIMEOUT_MS = 10000;
-const RETRYABLE_CODES = new Set(['EAI_AGAIN', 'ENOTFOUND', 'ETIMEDOUT', 'ECONNRESET']);
-
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-const requestWithRetry = async (url, options = {}, retries = 2) => {
-  let lastError;
-  for (let attempt = 0; attempt <= retries; attempt += 1) {
-    try {
-      const response = await axios.get(url, {
-        timeout: DEFAULT_TIMEOUT_MS,
-        headers: {
-          'User-Agent': 'SportsApp/1.0',
-          'Accept': 'application/json',
-          ...(options.headers || {}),
-        },
-        ...options,
-      });
-      return response;
-    } catch (error) {
-      lastError = error;
-      const code = error.code || '';
-      const shouldRetry = RETRYABLE_CODES.has(code);
-      if (!shouldRetry || attempt === retries) {
-        throw error;
-      }
-      await delay(500 * (attempt + 1));
-    }
-  }
-  throw lastError;
-};
+const prisma = new PrismaClient();
 
 class F1Collector {
   constructor() {
-    this.baseURL = process.env.OPENF1_BASE_URL || 'https://api.jolpi.ca/ergast/f1';
+    this.baseURL = 'https://api.openf1.org/v1';
   }
 
-  async getSessionsForYear(year) {
+  async requestWithRetry(path, params, retries = 2) {
+    let attempt = 0;
+    while (true) {
+      try {
+        const response = await axios.get(`${this.baseURL}${path}`, { params });
+        return response;
+      } catch (error) {
+        const status = error?.response?.status;
+        if (status === 429 && attempt < retries) {
+          const backoffMs = 1000 * (attempt + 1);
+          await new Promise((resolve) => setTimeout(resolve, backoffMs));
+          attempt += 1;
+          continue;
+        }
+        throw error;
+      }
+    }
+  }
+
+  async getCurrentSession() {
     try {
-      const response = await requestWithRetry(`${this.baseURL}/${year}.json`);
+      const response = await this.requestWithRetry('/sessions', {
+        year: new Date().getFullYear(),
+      });
       return response.data;
     } catch (error) {
       console.error('Error fetching F1 session:', error.message);
@@ -47,248 +39,247 @@ class F1Collector {
     }
   }
 
-  async getCurrentSession() {
-    const year = new Date().getFullYear();
-    return this.getSessionsForYear(year);
-  }
-
-  async getSeasonSchedule(year = new Date().getFullYear()) {
-    const response = await requestWithRetry(`${this.baseURL}/${year}.json`);
-    const races = response.data?.MRData?.RaceTable?.Races || [];
-    return races.map((race) => this.mapRaceToSession(race)).filter(Boolean);
-  }
-
-  async hasSeasonStarted() {
-    const races = await this.getSeasonSchedule();
-    const datedRaces = races
-      .filter((race) => race && race.date_start)
-      .sort((a, b) => new Date(a.date_start) - new Date(b.date_start));
-    if (datedRaces.length === 0) {
-      return true;
-    }
-    return new Date() >= new Date(datedRaces[0].date_start);
-  }
-
-  async getLivePositions(sessionKey) {
-    const round = sessionKey;
+  async getLatestSession(yearOverride) {
     try {
-      const path = round
-        ? `${this.baseURL}/current/${round}/results.json`
-        : `${this.baseURL}/current/last/results.json`;
-      const response = await requestWithRetry(path);
-      const race = response.data?.MRData?.RaceTable?.Races?.[0];
-      if (!race || !race.Results) {
-        return [];
-      }
-      return race.Results.map((result) => ({
-        position: result.position,
-        number: result.number,
-        points: result.points,
-        full_name: `${result.Driver?.givenName || ''} ${result.Driver?.familyName || ''}`.trim(),
-        team_name: result.Constructor?.name || '',
-        status: result.status,
-        time: result.Time?.time || null,
-        race_name: race.raceName,
-        round: race.round,
-      }));
-    } catch (error) {
-      console.error('Error fetching positions:', error.message);
-      throw error;
-    }
-  }
-
-  async getDrivers() {
-    try {
-      const seasonStarted = await this.hasSeasonStarted();
-      if (!seasonStarted) {
-        const drivers = await this.getDriverList();
-        return drivers.map((driver) => ({
-          driver_id: driver?.driverId || '',
-          driver_number: driver?.permanentNumber || null,
-          full_name: `${driver?.givenName || ''} ${driver?.familyName || ''}`.trim(),
-          team_name: '',
-          country_code: driver?.nationality || '',
-          wins: '0',
-          points: '0',
-          position: null,
-        }));
-      }
-
-      const response = await requestWithRetry(`${this.baseURL}/current/driverStandings.json`);
-      const standings = response.data?.MRData?.StandingsTable?.StandingsLists?.[0]?.DriverStandings || [];
-      if (standings.length === 0) {
-        const drivers = await this.getDriverList();
-        return drivers.map((driver) => ({
-          driver_id: driver?.driverId || '',
-          driver_number: driver?.permanentNumber || null,
-          full_name: `${driver?.givenName || ''} ${driver?.familyName || ''}`.trim(),
-          team_name: '',
-          country_code: driver?.nationality || '',
-          wins: '0',
-          points: '0',
-          position: null,
-        }));
-      }
-        return standings.map((entry) => ({
-          driver_id: entry.Driver?.driverId || '',
-          driver_number: entry.Driver?.permanentNumber || null,
-          full_name: `${entry.Driver?.givenName || ''} ${entry.Driver?.familyName || ''}`.trim(),
-          team_name: entry.Constructors?.[0]?.name || '',
-          country_code: entry.Driver?.nationality || '',
-          wins: entry.wins || '0',
-          points: entry.points,
-          position: entry.position,
-        }));
-    } catch (error) {
-      console.error('Error fetching drivers:', error.message);
-      throw error;
-    }
-  }
-
-  async getDriverList() {
-    const response = await requestWithRetry(`${this.baseURL}/current/drivers.json`);
-    return response.data?.MRData?.DriverTable?.Drivers || [];
-  }
-
-  async getConstructors() {
-    try {
-      const seasonStarted = await this.hasSeasonStarted();
-      if (!seasonStarted) {
-        const constructors = await this.getConstructorList();
-        return constructors.map((constructor) => ({
-          constructor_id: constructor?.constructorId || '',
-          team_name: constructor?.name || '',
-          country_code: constructor?.nationality || '',
-          points: '0',
-          position: null,
-        }));
-      }
-
-      const response = await requestWithRetry(`${this.baseURL}/current/constructorStandings.json`);
-      const standings = response.data?.MRData?.StandingsTable?.StandingsLists?.[0]?.ConstructorStandings || [];
-      if (standings.length === 0) {
-        const constructors = await this.getConstructorList();
-        return constructors.map((constructor) => ({
-          constructor_id: constructor?.constructorId || '',
-          team_name: constructor?.name || '',
-          country_code: constructor?.nationality || '',
-          points: '0',
-          position: null,
-        }));
-      }
-      return standings.map((entry) => ({
-        constructor_id: entry.Constructor?.constructorId || '',
-        team_name: entry.Constructor?.name || '',
-        country_code: entry.Constructor?.nationality || '',
-        points: entry.points,
-        position: entry.position,
-      }));
-    } catch (error) {
-      console.error('Error fetching constructors:', error.message);
-      throw error;
-    }
-  }
-
-  async getConstructorList() {
-    const response = await requestWithRetry(`${this.baseURL}/current/constructors.json`);
-    return response.data?.MRData?.ConstructorTable?.Constructors || [];
-  }
-
-  async getDriverProfile(driverId) {
-    const response = await requestWithRetry(`${this.baseURL}/drivers/${driverId}.json`);
-    return response.data?.MRData?.DriverTable?.Drivers?.[0] || null;
-  }
-
-  async getConstructorProfile(constructorId) {
-    const response = await requestWithRetry(`${this.baseURL}/constructors/${constructorId}.json`);
-    return response.data?.MRData?.ConstructorTable?.Constructors?.[0] || null;
-  }
-
-  async getResultsTotal(path) {
-    const response = await requestWithRetry(`${this.baseURL}/${path}`);
-    const total = Number.parseInt(response.data?.MRData?.total, 10);
-    return Number.isNaN(total) ? 0 : total;
-  }
-
-  async getDriverStats(driverId) {
-    const wins = await this.getResultsTotal(`drivers/${driverId}/results/1.json`);
-    const second = await this.getResultsTotal(`drivers/${driverId}/results/2.json`);
-    const third = await this.getResultsTotal(`drivers/${driverId}/results/3.json`);
-    return {
-      wins,
-      podiums: wins + second + third,
-      championships: null,
-      championships_note: 'Championship totals require season-by-season standings and are not available from this API.',
-    };
-  }
-
-  async getConstructorStats(constructorId) {
-    const wins = await this.getResultsTotal(`constructors/${constructorId}/results/1.json`);
-    const second = await this.getResultsTotal(`constructors/${constructorId}/results/2.json`);
-    const third = await this.getResultsTotal(`constructors/${constructorId}/results/3.json`);
-    return {
-      wins,
-      podiums: wins + second + third,
-      championships: null,
-      championships_note: 'Championship totals require season-by-season standings and are not available from this API.',
-    };
-  }
-
-  async getActiveSession() {
-    return null;
-  }
-
-  async getUpcomingSessions(limit = 6) {
-    const races = await this.getSeasonSchedule();
-    const now = new Date();
-    const upcoming = races
-      .filter((session) => session && session.date_start && new Date(session.date_start) > now)
-      .sort((a, b) => new Date(a.date_start) - new Date(b.date_start));
-    if (!limit || Number.isNaN(limit) || limit <= 0) {
-      return upcoming;
-    }
-    return upcoming.slice(0, limit);
-  }
-
-  async getUpcomingMeetings(limit = 6) {
-    return this.getUpcomingSessions(limit);
-  }
-
-  // Get latest session (most recent)
-  async getLatestSession() {
-    try {
-      const response = await requestWithRetry(`${this.baseURL}/current/last/results.json`);
-      const race = response.data?.MRData?.RaceTable?.Races?.[0];
-      if (!race) {
-        return null;
-      }
-      return this.mapRaceToSession(race);
+      const year = Number.isFinite(yearOverride) ? yearOverride : new Date().getFullYear();
+      const response = await this.requestWithRetry('/sessions', { year });
+      
+      const sessions = response.data.sort((a, b) => 
+        new Date(b.date_start) - new Date(a.date_start)
+      );
+      
+      return sessions[0];
     } catch (error) {
       console.error('Error fetching latest session:', error.message);
       throw error;
     }
   }
 
-  mapRaceToSession(race) {
-    if (!race) {
+  async getLatestRaceSession(yearOverride) {
+    try {
+      const year = Number.isFinite(yearOverride) ? yearOverride : new Date().getFullYear();
+      const response = await this.requestWithRetry('/sessions', {
+        year,
+        session_type: 'Race',
+      });
+
+      const sessions = response.data.sort(
+        (a, b) => new Date(b.date_start) - new Date(a.date_start)
+      );
+
+      if (sessions.length === 0) {
+        return this.getLatestSession(yearOverride);
+      }
+
+      return sessions[0];
+    } catch (error) {
+      console.error('Error fetching latest race session:', error.message);
+      throw error;
+    }
+  }
+
+  async getChampionshipDrivers(sessionKey) {
+    try {
+      const response = await this.requestWithRetry('/championship_drivers', {
+        session_key: sessionKey
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching championship drivers:', error.message);
+      throw error;
+    }
+  }
+
+  async getChampionshipTeams(sessionKey) {
+    try {
+      const response = await this.requestWithRetry('/championship_teams', {
+        session_key: sessionKey
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching championship teams:', error.message);
+      throw error;
+    }
+  }
+
+  async getSessionResults(sessionKey) {
+    try {
+      const response = await this.requestWithRetry('/session_result', {
+        session_key: sessionKey
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching session results:', error.message);
+      throw error;
+    }
+  }
+
+  async getMeetings(yearOverride) {
+    try {
+      const year = Number.isFinite(yearOverride) ? yearOverride : new Date().getFullYear();
+      const response = await this.requestWithRetry('/meetings', { year });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching meetings:', error.message);
+      throw error;
+    }
+  }
+
+  async getDrivers(sessionKey) {
+    try {
+      const params = {};
+      if (sessionKey) {
+        params.session_key = sessionKey;
+      }
+      
+      const response = await this.requestWithRetry('/drivers', params);
+
+      // AUTO-SAVE: Save to database if we have a session key
+      if (sessionKey && response.data.length > 0) {
+        await this.saveDriversToDb(response.data, sessionKey);
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching drivers:', error.message);
+      throw error;
+    }
+  }
+
+  async getLivePositions(sessionKey) {
+    if (!sessionKey) {
+      throw new Error('sessionKey is required');
+    }
+    
+    try {
+      const response = await this.requestWithRetry('/position', {
+        session_key: sessionKey
+      });
+      
+      // AUTO-SAVE: Save position data
+      if (response.data.length > 0) {
+        await this.savePositionsToDb(response.data, sessionKey);
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching positions:', error.message);
+      throw error;
+    }
+  }
+
+  // Save session to database
+  async saveSessionToDb(sessionData) {
+    try {
+      const session = await prisma.f1Session.upsert({
+        where: { sessionKey: sessionData.session_key.toString() },
+        update: {
+          sessionName: sessionData.session_name,
+          dateEnd: sessionData.date_end ? new Date(sessionData.date_end) : null,
+        },
+        create: {
+          sessionKey: sessionData.session_key.toString(),
+          sessionName: sessionData.session_name,
+          dateStart: new Date(sessionData.date_start),
+          dateEnd: sessionData.date_end ? new Date(sessionData.date_end) : null,
+          circuitName: sessionData.circuit_short_name || 'Unknown',
+          country: sessionData.country_name || 'Unknown',
+          year: sessionData.year,
+        },
+      });
+      
+      console.log(`Saved F1 session: ${session.sessionName}`);
+      return session;
+    } catch (error) {
+      console.error('Error saving F1 session:', error.message);
       return null;
     }
-    const dateStart = race.date && race.time ? `${race.date}T${race.time}` : race.date || null;
-    let isoDate = null;
-    if (dateStart) {
-      const parsed = new Date(dateStart);
-      isoDate = Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+  }
+
+  // Save drivers to database
+  async saveDriversToDb(drivers, sessionKey) {
+    try {
+      // First ensure session exists
+      let session = await prisma.f1Session.findUnique({
+        where: { sessionKey: sessionKey.toString() }
+      });
+
+      if (!session) {
+        // Create a basic session record
+        session = await prisma.f1Session.create({
+          data: {
+            sessionKey: sessionKey.toString(),
+            sessionName: 'Unknown',
+            dateStart: new Date(),
+            circuitName: 'Unknown',
+            country: 'Unknown',
+            year: new Date().getFullYear(),
+          }
+        });
+      }
+
+      // Save each driver
+      let savedCount = 0;
+      for (const driver of drivers) {
+        try {
+          const driverId = `${sessionKey}-${driver.driver_number}`;
+          const fullName = driver.full_name || 'Unknown Driver';
+          const teamName = driver.team_name || 'Unknown';
+          const countryCode = driver.country_code || 'UNK';
+          await prisma.f1Driver.upsert({
+            where: {
+              id: driverId
+            },
+            update: {
+              fullName,
+              nameAcronym: driver.name_acronym,
+              teamName,
+              countryCode,
+            },
+            create: {
+              id: driverId,
+              driverNumber: driver.driver_number,
+              fullName,
+              nameAcronym: driver.name_acronym,
+              teamName,
+              countryCode,
+              session: {
+                connect: { id: session.id }
+              }
+            }
+          });
+          savedCount++;
+        } catch (err) {
+          console.error(`Error saving driver ${driver.full_name}:`, err.message);
+        }
+      }
+
+      console.log(`💾 Saved ${savedCount}/${drivers.length} F1 drivers to database`);
+    } catch (error) {
+      console.error('Error saving drivers to DB:', error.message);
     }
-    return {
-      session_key: race.round,
-      meeting_name: race.raceName,
-      circuit_name: race.Circuit?.circuitName || '',
-      circuit_short_name: race.Circuit?.Location?.locality || '',
-      location: race.Circuit?.Location?.country || '',
-      date_start: isoDate,
-      round: race.round,
-      race_name: race.raceName,
-    };
+  }
+
+  // Save position data (for lap times tracking)
+  async savePositionsToDb(positions, sessionKey) {
+    try {
+      // Get session
+      const session = await prisma.f1Session.findUnique({
+        where: { sessionKey: sessionKey.toString() }
+      });
+
+      if (!session) {
+        console.log('⚠️ Session not found, skipping position save');
+        return;
+      }
+
+      // Note: Position tracking is real-time, so we only save periodically
+      // This is a simplified version
+      console.log(`Tracked ${positions.length} position updates`);
+      
+    } catch (error) {
+      console.error('Error saving positions:', error.message);
+    }
   }
 }
 

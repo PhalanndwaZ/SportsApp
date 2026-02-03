@@ -4,6 +4,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
 require('dotenv').config();
+const { testConnection } = require('./services/database');
 
 const app = express();
 const server = http.createServer(app);
@@ -17,6 +18,9 @@ const io = socketIo(server, {
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Test database connection on startup
+testConnection();
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -32,7 +36,7 @@ app.use('/api/football', footballRoutes);
 
 // WebSocket connection 
 io.on('connection', (socket) => {
-    console.log('✅ New client connected:', socket.id);
+    console.log('New client connected:', socket.id);
 
     socket.on('disconnect', () => {
         console.log('Client disconnected:', socket.id);
@@ -41,10 +45,10 @@ io.on('connection', (socket) => {
 
 // START SCHEDULED JOBS
 const { startF1LiveUpdates, startFootballLiveUpdates, setIo } = require('./jobs/scheduledJobs');
-setIo(io); // Pass io instance to scheduled jobs
+setIo(io);
 startF1LiveUpdates();
 startFootballLiveUpdates();
-console.log(' Scheduled jobs initialized');
+console.log('Scheduled jobs initialized');
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {

@@ -1,0 +1,150 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  
+}
+
+// F1 Models
+model F1Session {
+  id            String   @id @default(uuid())
+  sessionKey    String   @unique
+  sessionName   String
+  dateStart     DateTime
+  dateEnd       DateTime?
+  circuitName   String
+  country       String
+  year          Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  drivers       F1Driver[]
+  lapTimes      F1LapTime[]
+  
+  @@map("f1_sessions")
+  @@index([year, sessionName])
+}
+
+model F1Driver {
+  id            String   @id @default(uuid())
+  driverNumber  Int
+  fullName      String
+  nameAcronym   String?
+  teamName      String
+  countryCode   String
+  sessionId     String
+  position      Int?
+  points        Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  session       F1Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  lapTimes      F1LapTime[]
+  
+  @@map("f1_drivers")
+  @@index([sessionId])
+}
+
+model F1Meeting {
+  id                 String   @id @default(uuid())
+  meetingKey         Int      @unique
+  meetingName        String
+  officialName       String?
+  location           String?
+  countryCode        String?
+  countryName        String?
+  circuitShortName   String?
+  dateStart          DateTime
+  dateEnd            DateTime?
+  year               Int
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("f1_meetings")
+  @@index([year, dateStart])
+}
+
+model F1LapTime {
+  id            String   @id @default(uuid())
+  sessionId     String
+  driverId      String
+  lapNumber     Int
+  lapTime       String
+  sector1       String?
+  sector2       String?
+  sector3       String?
+  createdAt     DateTime @default(now())
+  
+  session       F1Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  driver        F1Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  
+  @@map("f1_lap_times")
+  @@index([sessionId, lapNumber])
+}
+
+// Football Models
+model FootballMatch {
+  id            String   @id @default(uuid())
+  matchId       Int      @unique
+  homeTeam      String
+  homeTeamId    Int?
+  awayTeam      String
+  awayTeamId    Int?
+  homeScore     Int?
+  awayScore     Int?
+  competition   String
+  competitionId Int?
+  matchDate     DateTime
+  status        String   // SCHEDULED, LIVE, FINISHED, etc.
+  venue         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@map("football_matches")
+  @@index([status, matchDate])
+}
+
+model FootballTeam {
+  id            String   @id @default(uuid())
+  teamId        Int      @unique
+  teamName      String
+  shortName     String?
+  tla           String?  // Three Letter Acronym
+  competition   String
+  competitionId Int
+  position      Int
+  played        Int
+  won           Int
+  drawn         Int
+  lost          Int
+  points        Int
+  goalsFor      Int      @default(0)
+  goalsAgainst  Int      @default(0)
+  goalDiff      Int      @default(0)
+  updatedAt     DateTime @updatedAt
+  
+  @@map("football_teams")
+  @@index([competitionId, position])
+}
+
+model FootballPlayer {
+  id            String   @id @default(uuid())
+  playerId      Int      @unique
+  playerName    String
+  teamName      String
+  teamId        Int?
+  position      String?
+  nationality   String?
+  goals         Int      @default(0)
+  assists       Int      @default(0)
+  matchesPlayed Int      @default(0)
+  season        String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@map("football_players")
+  @@index([teamId])
+}
